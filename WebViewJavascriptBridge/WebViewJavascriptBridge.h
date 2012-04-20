@@ -1,5 +1,7 @@
 #import <UIKit/UIKit.h>
 
+typedef void (^ResponseCallback)(NSString* errorMessage, NSDictionary* response);
+
 @class WebViewJavascriptBridge;
 
 @protocol WebViewJavascriptBridgeDelegate <UIWebViewDelegate>
@@ -17,6 +19,8 @@
 
 /* Send a message to the web view. Make sure that this javascript bridge is the delegate
  * of the webview before calling this method (see ExampleAppDelegate.m) */
-- (void)sendMessage:(NSString *)message toWebView:(UIWebView *)webView;
+- (void)sendMessage:(id)message toWebView:(UIWebView *)webView;
+
+- (void)sendCommand:(NSString*)command data:(id)data callback:(ResponseCallback)callback;
 
 @end

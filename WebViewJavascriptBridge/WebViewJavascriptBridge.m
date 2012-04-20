@@ -3,9 +3,11 @@
 @interface WebViewJavascriptBridge ()
 
 @property (nonatomic,strong) NSMutableArray *startupMessageQueue;
+@property (nonatomic,strong) NSMutableDictionary *callbackDictionary; 
+@property (atomic,assign) NSInteger callbackId;
 
 - (void)_flushMessageQueueFromWebView:(UIWebView *)webView;
-- (void)_doSendMessage:(NSString*)message toWebView:(UIWebView *)webView;
+- (void)_doSendMessage:(id)message toWebView:(UIWebView *)webView;
 
 @end
 
@@ -13,6 +15,8 @@
 
 @synthesize delegate = _delegate;
 @synthesize startupMessageQueue = _startupMessageQueue;
+@synthesize callbackDictionary = _callbackDictionary;
+@synthesize callbackId = _callbackId;
 
 static NSString *MESSAGE_SEPARATOR = @"__wvjb_sep__";
 static NSString *CUSTOM_PROTOCOL_SCHEME = @"webviewjavascriptbridge";
@@ -22,6 +26,7 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
     WebViewJavascriptBridge* bridge = [[[WebViewJavascriptBridge alloc] init] autorelease];
     bridge.delegate = delegate;
     bridge.startupMessageQueue = [[[NSMutableArray alloc] init] autorelease];
+    bridge.callbackDictionary = [[[NSMutableDictionary alloc] init] autorelease];
     return bridge;
 }
 
@@ -32,16 +37,30 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
     [super dealloc];
 }
 
-- (void)sendMessage:(NSString *)message toWebView:(UIWebView *)webView {
+- (void)sendMessage:(id)message toWebView:(UIWebView *)webView {
     if (self.startupMessageQueue) { [self.startupMessageQueue addObject:message]; }
-    else { [self _doSendMessage:message toWebView: webView]; }
+    else { [self _doSendMessage:message toWebView:webView]; }
 }
 
-- (void)_doSendMessage:(NSString *)message toWebView:(UIWebView *)webView {
-    message = [message stringByReplacingOccurrencesOfString:@"\\n" withString:@"\\\\n"];
-    message = [message stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
-    message = [message stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
-    [webView stringByEvaluatingJavaScriptFromString:[NSString stringWithFormat:@"WebViewJavascriptBridge._handleMessageFromObjC('%@');", message]];
+- (void)sendCommand:(NSString *)command toWebView:(UIWebView *)webView data:(id)data callback:(ResponseCallback)callback {
+    NSMutableDictionary *message = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                    command, @"command", data, @"data", nil];
+    if (callback) {
+        NSInteger callbackId = self.callbackId++;
+        [message setValue:[NSNumber numberWithInt:callbackId] forKey:@"responseId"];
+    }
+    
+    [self _doSendMessage:message toWebView:webView];
+}
+
+- (void)_doSendMessage:(id)message toWebView:(UIWebView *)webView {
+    NSError* error = [[NSError alloc] init];
+    NSData* jsonData = [NSJSONSerialization dataWithJSONObject:message options:NSJSONWritingPrettyPrinted error:&error];
+    NSString* json = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    json = [json stringByReplacingOccurrencesOfString:@"\\n" withString:@"\\\\n"];
+    json = [json stringByReplacingOccurrencesOfString:@"'" withString:@"\\'"];
+    json = [json stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+    [webView stringByEvaluatingJavaScriptFromString:[NSString stringWithFormat:@"WebViewJavascriptBridge._handleMessageFromObjC('%@');", json]];
 }
 
 - (void)_flushMessageQueueFromWebView:(UIWebView *)webView {
