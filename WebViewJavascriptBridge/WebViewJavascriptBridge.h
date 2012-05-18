@@ -1,16 +1,13 @@
 #import <UIKit/UIKit.h>
+#import "WebViewBridge.h"
+#import "WebViewJavascriptBridgeDelegate.h"
 
-@class WebViewJavascriptBridge;
+@interface WebViewJavascriptBridge : WebViewBridge <UIWebViewDelegate> {
+    id <WebViewJavascriptBridgeDelegate> _delegate;
+}
 
-@protocol WebViewJavascriptBridgeDelegate <UIWebViewDelegate>
+- (id) initWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate;
 
-- (void)javascriptBridge:(WebViewJavascriptBridge *)bridge receivedMessage:(NSString *)message fromWebView:(UIWebView *)webView;
-
-@end
-
-@interface WebViewJavascriptBridge : NSObject <UIWebViewDelegate>
-
-@property (nonatomic, assign) IBOutlet id <WebViewJavascriptBridgeDelegate> delegate;
 
 /* Create a javascript bridge with the given delegate for handling messages */
 + (id)javascriptBridgeWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate;

@@ -11,7 +11,6 @@
 
 @implementation WebViewJavascriptBridge
 
-@synthesize delegate = _delegate;
 @synthesize startupMessageQueue = _startupMessageQueue;
 
 static NSString *MESSAGE_SEPARATOR = @"__wvjb_sep__";
@@ -19,11 +18,22 @@ static NSString *CUSTOM_PROTOCOL_SCHEME = @"webviewjavascriptbridge";
 static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 
 + (id)javascriptBridgeWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate {
-    WebViewJavascriptBridge* bridge = [[[WebViewJavascriptBridge alloc] init] autorelease];
-    bridge.delegate = delegate;
+    WebViewJavascriptBridge* bridge = [[[WebViewJavascriptBridge alloc] initWithDelegate:delegate] autorelease];
 	[bridge resetQueue];
     return bridge;
 }
+
+- (id) initWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate {
+    
+	self = [super init];
+    
+    if (self) {
+        _delegate = delegate;
+    }
+    
+	return self;
+}
+
 
 - (void)dealloc {
     _delegate = nil;
@@ -52,7 +62,7 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
     NSString *messageQueueString = [webView stringByEvaluatingJavaScriptFromString:@"WebViewJavascriptBridge._fetchQueue();"];
     NSArray* messages = [messageQueueString componentsSeparatedByString:MESSAGE_SEPARATOR];
     for (id message in messages) {
-        [self.delegate javascriptBridge:self receivedMessage:message fromWebView:webView];
+        [_delegate javascriptBridge:self receivedMessage:message fromWebView:webView];
     }
 }
 
@@ -128,22 +138,22 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 
     self.startupMessageQueue = nil;
 
-    if(self.delegate != nil && [self.delegate respondsToSelector:@selector(webViewDidFinishLoad:)]) {
-        [self.delegate webViewDidFinishLoad:webView];
+    if(_delegate != nil && [_delegate respondsToSelector:@selector(webViewDidFinishLoad:)]) {
+        [_delegate webViewDidFinishLoad:webView];
     }
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error {
-    if(self.delegate != nil && [self.delegate respondsToSelector:@selector(webView:didFailLoadWithError:)]) {
-        [self.delegate webView:webView didFailLoadWithError:error];
+    if(_delegate != nil && [_delegate respondsToSelector:@selector(webView:didFailLoadWithError:)]) {
+        [_delegate webView:webView didFailLoadWithError:error];
     }
 }
 
 - (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
     NSURL *url = [request URL];
     if (![[url scheme] isEqualToString:CUSTOM_PROTOCOL_SCHEME]) {
-        if (self.delegate != nil && [self.delegate respondsToSelector:@selector(webView:shouldStartLoadWithRequest:navigationType:)]) {
-            return [self.delegate webView:webView shouldStartLoadWithRequest:request navigationType:navigationType];
+        if (_delegate != nil && [_delegate respondsToSelector:@selector(webView:shouldStartLoadWithRequest:navigationType:)]) {
+            return [_delegate webView:webView shouldStartLoadWithRequest:request navigationType:navigationType];
         }
         return YES;
     }
@@ -158,8 +168,8 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 }
 
 - (void)webViewDidStartLoad:(UIWebView *)webView {
-    if(self.delegate != nil && [self.delegate respondsToSelector:@selector(webViewDidStartLoad:)]) {
-        [self.delegate webViewDidStartLoad:webView];
+    if(_delegate != nil && [_delegate respondsToSelector:@selector(webViewDidStartLoad:)]) {
+        [_delegate webViewDidStartLoad:webView];
     }
 }
 
