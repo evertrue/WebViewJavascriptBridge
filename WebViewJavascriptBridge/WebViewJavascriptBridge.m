@@ -12,23 +12,28 @@
 @implementation WebViewJavascriptBridge
 
 @synthesize startupMessageQueue = _startupMessageQueue;
+@synthesize scheme;
 
 static NSString *MESSAGE_SEPARATOR = @"__wvjb_sep__";
 static NSString *CUSTOM_PROTOCOL_SCHEME = @"webviewjavascriptbridge";
 static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 
-+ (id)javascriptBridgeWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate {
-    WebViewJavascriptBridge* bridge = [[[WebViewJavascriptBridge alloc] initWithDelegate:delegate] autorelease];
++ (id)javascriptBridgeWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate 
+               withWebViewDelegate:(id <UIWebViewDelegate>) webViewDelegate
+                        withScheme:(NSString*) protocolScheme {
+    WebViewJavascriptBridge* bridge = [[[WebViewJavascriptBridge alloc] initWithDelegate:delegate withWebViewDelegate:webViewDelegate] autorelease];
+    bridge.scheme = protocolScheme;
 	[bridge resetQueue];
     return bridge;
 }
 
-- (id) initWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate {
+- (id) initWithDelegate:(id <WebViewJavascriptBridgeDelegate>)delegate withWebViewDelegate:(id<UIWebViewDelegate>)webViewDelegate{
     
 	self = [super init];
     
     if (self) {
         _delegate = delegate;
+        _webViewDelegate = webViewDelegate;
     }
     
 	return self;
@@ -37,6 +42,7 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 
 - (void)dealloc {
     _delegate = nil;
+    _webViewDelegate = nil;
     [_startupMessageQueue release];
 
     [super dealloc];
@@ -125,7 +131,7 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
         ""
         "})();",
         MESSAGE_SEPARATOR,
-        CUSTOM_PROTOCOL_SCHEME,
+        self.scheme ? self.scheme : CUSTOM_PROTOCOL_SCHEME,
         QUEUE_HAS_MESSAGE];
     
     if (![[webView stringByEvaluatingJavaScriptFromString:@"typeof WebViewJavascriptBridge == 'object'"] isEqualToString:@"true"]) {
@@ -138,22 +144,24 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
 
     self.startupMessageQueue = nil;
 
-    if(_delegate != nil && [_delegate respondsToSelector:@selector(webViewDidFinishLoad:)]) {
-        [_delegate webViewDidFinishLoad:webView];
+    if(_webViewDelegate != nil && [_webViewDelegate respondsToSelector:@selector(webViewDidFinishLoad:)]) {
+        [_webViewDelegate webViewDidFinishLoad:webView];
     }
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error {
-    if(_delegate != nil && [_delegate respondsToSelector:@selector(webView:didFailLoadWithError:)]) {
-        [_delegate webView:webView didFailLoadWithError:error];
+    if(_webViewDelegate != nil && [_webViewDelegate respondsToSelector:@selector(webView:didFailLoadWithError:)]) {
+        [_webViewDelegate webView:webView didFailLoadWithError:error];
     }
 }
 
 - (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType {
     NSURL *url = [request URL];
-    if (![[url scheme] isEqualToString:CUSTOM_PROTOCOL_SCHEME]) {
-        if (_delegate != nil && [_delegate respondsToSelector:@selector(webView:shouldStartLoadWithRequest:navigationType:)]) {
-            return [_delegate webView:webView shouldStartLoadWithRequest:request navigationType:navigationType];
+    
+    NSString* customScheme = self.scheme ? self.scheme : CUSTOM_PROTOCOL_SCHEME;
+    if (![[url scheme] isEqualToString:customScheme]) {
+        if (_webViewDelegate != nil && [_webViewDelegate respondsToSelector:@selector(webView:shouldStartLoadWithRequest:navigationType:)]) {
+            return [_webViewDelegate webView:webView shouldStartLoadWithRequest:request navigationType:navigationType];
         }
         return YES;
     }
@@ -161,15 +169,15 @@ static NSString *QUEUE_HAS_MESSAGE = @"queuehasmessage";
     if ([[url host] isEqualToString:QUEUE_HAS_MESSAGE]) {
         [self _flushMessageQueueFromWebView: webView];
     } else {
-        NSLog(@"WebViewJavascriptBridge: WARNING: Received unknown WebViewJavascriptBridge command %@://%@", CUSTOM_PROTOCOL_SCHEME, [url path]);
+        NSLog(@"WebViewJavascriptBridge: WARNING: Received unknown WebViewJavascriptBridge command %@://%@", customScheme, [url path]);
     }
 
     return NO;
 }
 
 - (void)webViewDidStartLoad:(UIWebView *)webView {
-    if(_delegate != nil && [_delegate respondsToSelector:@selector(webViewDidStartLoad:)]) {
-        [_delegate webViewDidStartLoad:webView];
+    if(_webViewDelegate != nil && [_webViewDelegate respondsToSelector:@selector(webViewDidStartLoad:)]) {
+        [_webViewDelegate webViewDidStartLoad:webView];
     }
 }
 
